@@ -1,0 +1,52 @@
+<?php include __DIR__ . '/../layout/header.php'; ?>
+
+<div class="page-layout">
+    <?php include __DIR__ . '/../layout/nav.php'; ?>
+
+    <div class="content-panel">
+        <div class="header-action">
+            <h3>Filmes Cadastrados</h3>
+            <a href="/lp3_projeto/filmes/adicionar" class="btn btn-success btn-sm">+ Novo Filme</a>
+        </div>
+
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Filme</th>
+                    <th>Diretor</th>
+                    <th>Duração (min)</th>
+                    <th>Imagem</th>
+                    <th class="text-center">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (!empty($filmes)): ?>
+                    <?php foreach ($filmes as $f): ?>
+                        <tr>
+                            <td><?= $f['id'] ?></td>
+                            <td><?= htmlspecialchars($f['filme']) ?></td>
+                            <td><?= htmlspecialchars($f['diretor']) ?></td>
+                            <td><?= htmlspecialchars($f['duracao']) ?></td>
+                            <td><?= htmlspecialchars($f['imagem']) ?></td>
+                            <td class="text-center">
+                                <a href="/lp3_projeto/filmes/editar?id=<?= $f['id'] ?>" class="btn btn-warning btn-sm">Editar</a>
+                                <a href="/lp3_projeto/filmes/excluir?id=<?= $f['id'] ?>"
+                                   class="btn btn-danger btn-sm"
+                                   onclick="return confirm('Tem certeza que deseja excluir este filme?');">
+                                   Excluir
+                                </a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <tr>
+                        <td colspan="6" style="text-align: center;">Nenhum filme cadastrado.</td>
+                    </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<?php include __DIR__ . '/../layout/footer.php'; ?>
