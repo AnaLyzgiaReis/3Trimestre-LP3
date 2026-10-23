@@ -15,28 +15,28 @@ class Filme{
         return $stmt->fetchAll();
     }
 
-    public function salvar(string $filme, string $diretor, int $duracao, string $imagem){
+    public function salvar(string $filme, string $diretor, int $duracao, ?string $imagem){
         $sql = "insert into $this->tabela (filme, diretor, duracao, imagem) values (:filme, :diretor, :duracao, :imagem)";
         $stmt = $this->db->prepare($sql);
         $values = [
-            ':filme' => $filme,
-            ':diretor' => $diretor, 
-            ':duracao' => $duracao,
-            ':imagem' => $imagem
+            ':filme'      => $filme,
+            ':diretor'    => $diretor, 
+            ':duracao'    => $duracao,
+            ':imagem'     => $imagem
         ];
         return $stmt->execute($values);
 
     }
 
-    public function atualizar(int $id, string $filme, string $diretor, int $duracao, string $imagem){
+    public function atualizar(int $id, string $filme, string $diretor, int $duracao, ?string $imagem){
         $sql = "update $this->tabela set filme=:filme, diretor=:diretor, duracao=:duracao, imagem=:imagem where id=:id";
         $stmt = $this->db->prepare($sql);
         $values = [
-            ':id' => $id,
-            ':filme' => $filme,
-            ':diretor' => $diretor,
-            ':duracao' => $duracao,
-            ':imagem' => $imagem
+            ':id'        => $id,
+            ':filme'     => $filme,
+            ':diretor'   => $diretor,
+            ':duracao'   => $duracao,
+            ':imagem'    => $imagem
         ];
         return $stmt->execute($values);
         
