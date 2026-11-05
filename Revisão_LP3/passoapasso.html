@@ -1,0 +1,461 @@
+
+<!-- 
+Simulação de Prova — Módulo de Fornecedores
+
+Enunciado:
+
+CREATE TABLE fornecedores (
+    id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    razao_social VARCHAR(150) NOT NULL,
+    cnpj        VARCHAR(18) NOT NULL,
+    email       VARCHAR(100) NULL,
+    telefone    VARCHAR(20) NULL,
+    endereco    VARCHAR(255) NULL,
+    cidade      VARCHAR(100) NULL,
+    uf          CHAR(2) NULL,
+    valor_contrato DECIMAL(15,2) NULL,
+    data_cadastro DATE NULL,
+    observacoes TEXT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_fornecedores_cnpj (cnpj)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+Raciocínio padrão:
+1. SQL no phpMyAdmin  → cria a tabela
+2. Arquivo .sql       → salva o mesmo script na raiz do projeto
+3. Model              → models/Xxx.php     (listar, salvar, atualizar, buscarPorId, excluir)
+4. Controller         → controllers/XxxController.php  (index, adicionar, editar, excluir)
+5. Views              → views/xxx/{index,criar,editar}.php
+6. Rotas              → adicionar 4 linhas em index.php
+7. Menu               → adicionar 1 link em views/layout/nav.php
+8. Testar             → criar, listar, editar, excluir
+
+
+🧩 Passo 1 — Rodar o SQL no phpMyAdmin
+phpMyAdmin → banco curso_db → aba SQL → colar e executar:
+DROP TABLE IF EXISTS fornecedores;
+CREATE TABLE fornecedores (
+    id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    razao_social   VARCHAR(150) NOT NULL,
+    cnpj           VARCHAR(18)  NOT NULL,
+    email          VARCHAR(100) NULL,
+    telefone       VARCHAR(20)  NULL,
+    endereco       VARCHAR(255) NULL,
+    cidade         VARCHAR(100) NULL,
+    uf             CHAR(2)      NULL,
+    valor_contrato DECIMAL(15,2) NULL,
+    data_cadastro  DATE         NULL,
+    observacoes    TEXT         NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_fornecedores_cnpj (cnpj)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+Só adicionei AUTO_INCREMENT e PRIMARY KEY (o professor às vezes esquece — mesmo caso do filmes). O resto está igual.
+
+🧩 Passo 2 — Criar lp3_projeto/fornecedores.sql
+Cole o mesmo SQL do Passo 1.
+
+🧩 Passo 3 — Criar models/Fornecedor.php
+<?php
+require_once __DIR__ . '/../config/Database.php';
+
+class Fornecedor {
+    private $db;
+    private $tabela = "fornecedores";
+
+    public function __construct()
+    {
+        $this->db = Database::getConnection();
+    }
+
+    public function listar() {
+        $stmt = $this->db->query("SELECT * FROM $this->tabela ORDER BY id DESC");
+        return $stmt->fetchAll();
+    }
+
+    public function salvar($razao_social, $cnpj, $email, $telefone, $endereco, $cidade, $uf, $valor_contrato, $data_cadastro, $observacoes) {
+        $sql = "INSERT INTO $this->tabela
+                (razao_social, cnpj, email, telefone, endereco, cidade, uf, valor_contrato, data_cadastro, observacoes)
+                VALUES
+                (:razao_social, :cnpj, :email, :telefone, :endereco, :cidade, :uf, :valor_contrato, :data_cadastro, :observacoes)";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([
+            ':razao_social'   => $razao_social,
+            ':cnpj'           => $cnpj,
+            ':email'          => $email,
+            ':telefone'       => $telefone,
+            ':endereco'       => $endereco,
+            ':cidade'         => $cidade,
+            ':uf'             => $uf,
+            ':valor_contrato' => $valor_contrato,
+            ':data_cadastro'  => $data_cadastro,
+            ':observacoes'    => $observacoes
+        ]);
+    }
+
+    public function atualizar($id, $razao_social, $cnpj, $email, $telefone, $endereco, $cidade, $uf, $valor_contrato, $data_cadastro, $observacoes) {
+        $sql = "UPDATE $this->tabela
+                SET razao_social = :razao_social,
+                    cnpj = :cnpj,
+                    email = :email,
+                    telefone = :telefone,
+                    endereco = :endereco,
+                    cidade = :cidade,
+                    uf = :uf,
+                    valor_contrato = :valor_contrato,
+                    data_cadastro = :data_cadastro,
+                    observacoes = :observacoes
+                WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([
+            ':id'             => $id,
+            ':razao_social'   => $razao_social,
+            ':cnpj'           => $cnpj,
+            ':email'          => $email,
+            ':telefone'       => $telefone,
+            ':endereco'       => $endereco,
+            ':cidade'         => $cidade,
+            ':uf'             => $uf,
+            ':valor_contrato' => $valor_contrato,
+            ':data_cadastro'  => $data_cadastro,
+            ':observacoes'    => $observacoes
+        ]);
+    }
+
+    public function buscarPorId($id) {
+        $sql = "SELECT * FROM $this->tabela WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':id' => $id]);
+        return $stmt->fetch();
+    }
+
+    public function excluir($id) {
+        $sql = "DELETE FROM $this->tabela WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([':id' => $id]);
+    }
+}
+
+🧩 Passo 4 — Criar controllers/FornecedorController.php
+<?php
+class FornecedorController {
+    private $model;
+
+    public function __construct()
+    {
+        $this->model = new Fornecedor();
+    }
+
+    public function index() {
+        $fornecedores = $this->model->listar();
+        require __DIR__ . '/../views/fornecedores/index.php';
+    }
+
+    public function adicionar() {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $dados = $this->capturarDados();
+
+            if ($dados) {
+                $this->model->salvar(
+                    $dados['razao_social'], $dados['cnpj'], $dados['email'],
+                    $dados['telefone'], $dados['endereco'], $dados['cidade'],
+                    $dados['uf'], $dados['valor_contrato'],
+                    $dados['data_cadastro'], $dados['observacoes']
+                );
+                header('Location: /lp3_projeto/fornecedores');
+                exit;
+            }
+        }
+        require __DIR__ . '/../views/fornecedores/criar.php';
+    }
+
+    public function editar() {
+        $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+        if (!$id) {
+            header('Location: /lp3_projeto/fornecedores');
+            exit;
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $dados = $this->capturarDados();
+
+            if ($dados) {
+                $this->model->atualizar(
+                    $id, $dados['razao_social'], $dados['cnpj'], $dados['email'],
+                    $dados['telefone'], $dados['endereco'], $dados['cidade'],
+                    $dados['uf'], $dados['valor_contrato'],
+                    $dados['data_cadastro'], $dados['observacoes']
+                );
+                header('Location: /lp3_projeto/fornecedores');
+                exit;
+            }
+        }
+
+        $fornecedor = $this->model->buscarPorId($id);
+        if (!$fornecedor) {
+            header('Location: /lp3_projeto/fornecedores');
+            exit;
+        }
+        require __DIR__ . '/../views/fornecedores/editar.php';
+    }
+
+    public function excluir() {
+        $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+        if ($id) {
+            $this->model->excluir($id);
+        }
+        header('Location: /lp3_projeto/fornecedores');
+        exit;
+    }
+
+    private function capturarDados() {
+        $razao_social   = filter_input(INPUT_POST, 'razao_social', FILTER_SANITIZE_SPECIAL_CHARS);
+        $cnpj           = filter_input(INPUT_POST, 'cnpj', FILTER_SANITIZE_SPECIAL_CHARS);
+        $email          = filter_input(INPUT_POST, 'email', FILTER_VALIDATE_EMAIL);
+        $telefone       = filter_input(INPUT_POST, 'telefone', FILTER_SANITIZE_SPECIAL_CHARS);
+        $endereco       = filter_input(INPUT_POST, 'endereco', FILTER_SANITIZE_SPECIAL_CHARS);
+        $cidade         = filter_input(INPUT_POST, 'cidade', FILTER_SANITIZE_SPECIAL_CHARS);
+        $uf             = filter_input(INPUT_POST, 'uf', FILTER_SANITIZE_SPECIAL_CHARS);
+        $valor_contrato = filter_input(INPUT_POST, 'valor_contrato', FILTER_VALIDATE_FLOAT);
+        $data_cadastro  = filter_input(INPUT_POST, 'data_cadastro', FILTER_SANITIZE_SPECIAL_CHARS);
+        $observacoes    = filter_input(INPUT_POST, 'observacoes', FILTER_SANITIZE_SPECIAL_CHARS);
+
+        // Validações obrigatórias (NOT NULL na tabela)
+        if (!$razao_social || !$cnpj) {
+            return false;
+        }
+
+        return [
+            'razao_social'   => $razao_social,
+            'cnpj'           => $cnpj,
+            'email'          => $email ?: null,
+            'telefone'       => $telefone,
+            'endereco'       => $endereco,
+            'cidade'         => $cidade,
+            'uf'             => $uf ?: null,
+            'valor_contrato' => $valor_contrato !== false ? $valor_contrato : null,
+            'data_cadastro'  => $data_cadastro ?: null,
+            'observacoes'    => $observacoes
+        ];
+    }
+}
+
+🧩 Passo 5 — Criar as Views views/fornecedores/
+Crie a pasta views/fornecedores/ com 3 arquivos:
+✌️ views/fornecedores/index.php
+<?php include __DIR__ . '/../layout/header.php'; ?>
+
+<div class="page-layout">
+    <?php include __DIR__ . '/../layout/nav.php'; ?>
+
+    <div class="content-panel">
+        <div class="header-action">
+            <h3>Fornecedores Cadastrados</h3>
+            <a href="/lp3_projeto/fornecedores/adicionar" class="btn btn-success btn-sm">+ Novo Fornecedor</a>
+        </div>
+
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Razão Social</th>
+                    <th>CNPJ</th>
+                    <th>Cidade/UF</th>
+                    <th>Telefone</th>
+                    <th>Valor Contrato</th>
+                    <th class="text-center">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (!empty($fornecedores)): ?>
+                    <?php foreach ($fornecedores as $f): ?>
+                        <tr>
+                            <td><?= $f['id'] ?></td>
+                            <td><?= htmlspecialchars($f['razao_social']) ?></td>
+                            <td><?= htmlspecialchars($f['cnpj']) ?></td>
+                            <td>
+                                <?= htmlspecialchars($f['cidade']) ?>
+                                <?= $f['uf'] ? '/' . htmlspecialchars($f['uf']) : '' ?>
+                            </td>
+                            <td><?= htmlspecialchars($f['telefone']) ?></td>
+                            <td>R$ <?= number_format((float)$f['valor_contrato'], 2, ',', '.') ?></td>
+                            <td class="text-center">
+                                <a href="/lp3_projeto/fornecedores/editar?id=<?= $f['id'] ?>" class="btn btn-warning btn-sm">Editar</a>
+                                <a href="/lp3_projeto/fornecedores/excluir?id=<?= $f['id'] ?>"
+                                   class="btn btn-danger btn-sm"
+                                   onclick="return confirm('Tem certeza que deseja excluir este fornecedor?');">
+                                   Excluir
+                                </a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <tr>
+                        <td colspan="7" style="text-align: center;">Nenhum fornecedor cadastrado.</td>
+                    </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<?php include __DIR__ . '/../layout/footer.php'; ?>
+
+✌️ views/fornecedores/criar.php
+<?php include __DIR__ . '/../layout/header.php'; ?>
+
+<div class="page-layout">
+    <?php include __DIR__ . '/../layout/nav.php'; ?>
+
+    <div class="content-panel">
+        <div class="header-action">
+            <h3>Cadastrar Novo Fornecedor</h3>
+        </div>
+
+        <form action="/lp3_projeto/fornecedores/adicionar" method="POST" class="card-form">
+            <div class="form-group">
+                <label for="razao_social">Razão Social:</label>
+                <input type="text" id="razao_social" name="razao_social" required maxlength="150" class="form-control" placeholder="Ex: Distribuidora Alpha LTDA">
+            </div>
+
+            <div class="form-group">
+                <label for="cnpj">CNPJ:</label>
+                <input type="text" id="cnpj" name="cnpj" required maxlength="18" class="form-control" placeholder="Ex: 12.345.678/0001-90">
+            </div>
+
+            <div class="form-group">
+                <label for="email">E-mail:</label>
+                <input type="email" id="email" name="email" maxlength="100" class="form-control" placeholder="Ex: contato@empresa.com">
+            </div>
+
+            <div class="form-group">
+                <label for="telefone">Telefone:</label>
+                <input type="text" id="telefone" name="telefone" maxlength="20" class="form-control" placeholder="Ex: (11) 98765-4321">
+            </div>
+
+            <div class="form-group">
+                <label for="endereco">Endereço:</label>
+                <input type="text" id="endereco" name="endereco" maxlength="255" class="form-control" placeholder="Ex: Rua A, 100">
+            </div>
+
+            <div class="form-group">
+                <label for="cidade">Cidade:</label>
+                <input type="text" id="cidade" name="cidade" maxlength="100" class="form-control" placeholder="Ex: São Paulo">
+            </div>
+
+            <div class="form-group">
+                <label for="uf">UF:</label>
+                <input type="text" id="uf" name="uf" maxlength="2" class="form-control" placeholder="Ex: SP" style="text-transform: uppercase;">
+            </div>
+
+            <div class="form-group">
+                <label for="valor_contrato">Valor do Contrato:</label>
+                <input type="number" step="0.01" min="0" id="valor_contrato" name="valor_contrato" class="form-control" placeholder="Ex: 15000.00">
+            </div>
+
+            <div class="form-group">
+                <label for="data_cadastro">Data de Cadastro:</label>
+                <input type="date" id="data_cadastro" name="data_cadastro" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="observacoes">Observações:</label>
+                <textarea class="form-control" name="observacoes" id="observacoes" placeholder="Informações adicionais..."></textarea>
+            </div>
+
+            <div class="mt-3 d-flex gap-2">
+                <button type="submit" class="btn btn-success">Salvar</button>
+                <a href="/lp3_projeto/fornecedores" class="btn btn-secondary">Voltar</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<?php include __DIR__ . '/../layout/footer.php'; ?>
+
+✌️ views/fornecedores/editar.php
+<?php include __DIR__ . '/../layout/header.php'; ?>
+
+<div class="page-layout">
+    <?php include __DIR__ . '/../layout/nav.php'; ?>
+
+    <div class="content-panel">
+        <div class="header-action">
+            <h3>Editar Fornecedor</h3>
+        </div>
+
+        <form action="/lp3_projeto/fornecedores/editar?id=<?= $fornecedor['id'] ?>" method="POST" class="card-form">
+            <div class="form-group">
+                <label for="razao_social">Razão Social:</label>
+                <input type="text" id="razao_social" name="razao_social" value="<?= htmlspecialchars($fornecedor['razao_social']) ?>" required maxlength="150" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="cnpj">CNPJ:</label>
+                <input type="text" id="cnpj" name="cnpj" value="<?= htmlspecialchars($fornecedor['cnpj']) ?>" required maxlength="18" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="email">E-mail:</label>
+                <input type="email" id="email" name="email" value="<?= htmlspecialchars($fornecedor['email']) ?>" maxlength="100" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="telefone">Telefone:</label>
+                <input type="text" id="telefone" name="telefone" value="<?= htmlspecialchars($fornecedor['telefone']) ?>" maxlength="20" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="endereco">Endereço:</label>
+                <input type="text" id="endereco" name="endereco" value="<?= htmlspecialchars($fornecedor['endereco']) ?>" maxlength="255" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="cidade">Cidade:</label>
+                <input type="text" id="cidade" name="cidade" value="<?= htmlspecialchars($fornecedor['cidade']) ?>" maxlength="100" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="uf">UF:</label>
+                <input type="text" id="uf" name="uf" value="<?= htmlspecialchars($fornecedor['uf']) ?>" maxlength="2" class="form-control" style="text-transform: uppercase;">
+            </div>
+
+            <div class="form-group">
+                <label for="valor_contrato">Valor do Contrato:</label>
+                <input type="number" step="0.01" min="0" id="valor_contrato" name="valor_contrato" value="<?= htmlspecialchars($fornecedor['valor_contrato']) ?>" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="data_cadastro">Data de Cadastro:</label>
+                <input type="date" id="data_cadastro" name="data_cadastro" value="<?= htmlspecialchars($fornecedor['data_cadastro']) ?>" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="observacoes">Observações:</label>
+                <textarea class="form-control" name="observacoes" id="observacoes"><?= htmlspecialchars($fornecedor['observacoes']) ?></textarea>
+            </div>
+
+            <div class="mt-3 d-flex gap-2">
+                <button type="submit" class="btn btn-warning">Atualizar</button>
+                <a href="/lp3_projeto/fornecedores" class="btn btn-secondary">Voltar</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<?php include __DIR__ . '/../layout/footer.php'; ?>
+
+
+🧩 Passo 6 — Adicionar as 4 rotas em index.php
+Abra index.php e adicione dentro do array $rotas (no final, depois de livros):
+    // ⬇️ NOVAS ROTAS DE FORNECEDORES
+    '/fornecedores'             => ['controller' => 'FornecedorController', 'metodo' => 'index'],
+    '/fornecedores/adicionar'   => ['controller' => 'FornecedorController', 'metodo' => 'adicionar'],
+    '/fornecedores/editar'      => ['controller' => 'FornecedorController', 'metodo' => 'editar'],
+    '/fornecedores/excluir'     => ['controller' => 'FornecedorController', 'metodo' => 'excluir'],
+
+🧩 Passo 7 — Adicionar o link no menu lateral
+Abra views/layout/nav.php e adicione:
+<li><a href="/lp3_projeto/fornecedores">Fornecedores</a></li>  <!-- ← NOVO -->
+
+ -->
