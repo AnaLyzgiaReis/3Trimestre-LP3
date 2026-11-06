@@ -458,4 +458,240 @@ Abra index.php e adicione dentro do array $rotas (no final, depois de livros):
 Abra views/layout/nav.php e adicione:
 <li><a href="/lp3_projeto/fornecedores">Fornecedores</a></li>  <!-- ← NOVO -->
 
+😀😀😀Roteiro para construção de um módulo
+Estrutura base da aplicação
+index.php: centraliza as rotas e dispara os controllers
+controllers/: arquivos de controle da lógica do módulo
+models/: classes de acesso ao banco e operações CRUD
+views/: arquivos de interface (lista, cadastro e edição)
+schema.sql: estrutura do banco de dados
+
+💚 Tabela no banco
+CREATE TABLE clientes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    telefone VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+💚 Model
+<?php
+require_once __DIR__ . '/../config/Database.php';
+
+class Cliente {
+    private $db;
+    private $tabela = "clientes";
+
+    public function __construct()
+    {
+        $this->db = Database::getConnection();
+    }
+
+    public function listar() {
+        $stmt = $this->db->query("select * from $this->tabela order by id asc");
+        return $stmt->fetchAll();
+    }
+
+    public function salvar(string $nome, string $email, string $telefone) {
+        $sql = "insert into $this->tabela (nome, email, telefone) values (:nome, :email, :telefone)";
+        $stmt = $this->db->prepare($sql);
+        $values = [
+            ':nome' => $nome,
+            ':email' => $email,
+            ':telefone' => $telefone
+        ];
+        return $stmt->execute($values);
+    }
+
+    public function buscarPorId(int $id) {
+        $sql = "select * from $this->tabela where id = :id";
+        $stmt = $this->db->prepare($sql);
+        $values = [':id' => $id];
+        $stmt->execute($values);
+        return $stmt->fetch();
+    }
+
+    public function atualizar(int $id, string $nome, string $email, string $telefone) {
+        $sql = "update $this->tabela set nome=:nome, email=:email, telefone=:telefone where id=:id";
+        $stmt = $this->db->prepare($sql);
+        $values = [
+            ':nome' => $nome,
+            ':email' => $email,
+            ':telefone' => $telefone,
+            ':id' => $id
+        ];
+        return $stmt->execute($values);
+    }
+
+    public function excluir(int $id) {
+        $sql = "delete from $this->tabela where id = :id";
+        $stmt = $this->db->prepare($sql);
+        $values = [':id' => $id];
+        return $stmt->execute($values);
+    }
+}
+
+💚 Controller
+<?php
+class ClienteController {
+    private $model;
+
+    public function __construct()
+    {
+        $this->model = new Cliente();
+    }
+
+    public function index() {
+        $dados = $this->model->listar();
+        require __DIR__ . '/../views/clientes/index.php';
+    }
+
+    public function adicionar() {
+        if($_SERVER['REQUEST_METHOD'] === 'POST'){
+            $nome = filter_input(INPUT_POST, 'nome', FILTER_SANITIZE_SPECIAL_CHARS);
+            $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_SPECIAL_CHARS);
+            $telefone = filter_input(INPUT_POST, 'telefone', FILTER_SANITIZE_SPECIAL_CHARS);
+
+            if($nome && $email) {
+                $this->model->salvar($nome, $email, $telefone);
+                header('Location: /lp3_projeto/clientes');
+                exit;
+            }
+        }
+        require __DIR__ . '/../views/clientes/criar.php';
+    }
+
+    public function editar() {
+        $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+
+        if(!$id) {
+            header('Location: /lp3_projeto/clientes');
+            exit;
+        }
+
+        if($_SERVER['REQUEST_METHOD'] === 'POST'){
+            $nome = filter_input(INPUT_POST, 'nome', FILTER_SANITIZE_SPECIAL_CHARS);
+            $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_SPECIAL_CHARS);
+            $telefone = filter_input(INPUT_POST, 'telefone', FILTER_SANITIZE_SPECIAL_CHARS);
+
+            if($nome && $email) {
+                $this->model->atualizar($id, $nome, $email, $telefone);
+                header('Location: /lp3_projeto/clientes');
+                exit;
+            }
+        }
+
+        $dado = $this->model->buscarPorId($id);
+
+        if(!$dado) {
+            header('Location: /lp3_projeto/clientes');
+            exit;
+        }
+
+        require __DIR__ . '/../views/clientes/editar.php';
+    }
+
+    public function excluir() {
+        $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+
+        if($id) {
+            $this->model->excluir($id);
+        }
+
+        header('Location: /lp3_projeto/clientes');
+        exit;
+    }
+}
+
+💚 Rotas no index.php
+$rotas = [
+    '/clientes' => ['controller' => 'ClienteController', 'metodo' => 'index'],
+    '/clientes/adicionar' => ['controller' => 'ClienteController', 'metodo' => 'adicionar'],
+    '/clientes/editar' => ['controller' => 'ClienteController', 'metodo' => 'editar'],
+    '/clientes/excluir' => ['controller' => 'ClienteController', 'metodo' => 'excluir'],
+];
+
+💚 Pasta de views
+💧 index.php
+<?php include __DIR__ . '/../layout/header.php'; ?>
+
+<div class="page-layout">
+    <?php include __DIR__ . '/../layout/nav.php'; ?>
+
+    <div class="content-panel">
+        <div class="header-action">
+            <h3>Clientes Cadastrados</h3>
+            <a href="/lp3_projeto/clientes/adicionar" class="btn btn-success btn-sm">+ Adicionar</a>
+        </div>
+
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome</th>
+                    <th>E-mail</th>
+                    <th>Telefone</th>
+                    <th class="text-center">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (!empty($dados)): ?>
+                    <?php foreach ($dados as $linha): ?>
+                        <tr>
+                            <td><?= $linha['id'] ?></td>
+                            <td><?= htmlspecialchars($linha['nome']) ?></td>
+                            <td><?= htmlspecialchars($linha['email']) ?></td>
+                            <td><?= htmlspecialchars($linha['telefone']) ?></td>
+                            <td class="text-center">
+                                <a href="/lp3_projeto/clientes/editar?id=<?= $linha['id'] ?>" class="btn btn-warning btn-sm">Editar</a>
+                                <a href="/lp3_projeto/clientes/excluir?id=<?= $linha['id'] ?>" class="btn btn-danger btn-sm" onclick="return confirm('Tem certeza que deseja excluir este registro?');">Excluir</a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <tr>
+                        <td colspan="5" style="text-align: center;">Nenhum registro encontrado.</td>
+                    </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<?php include __DIR__ . '/../layout/footer.php'; ?>
+
+💧 criar.php
+<form method="POST" action="/lp3_projeto/clientes/adicionar">
+    <label>Nome</label>
+    <input type="text" name="nome" required>
+
+    <label>E-mail</label>
+    <input type="email" name="email" required>
+
+    <label>Telefone</label>
+    <input type="text" name="telefone">
+
+    <button type="submit">Salvar</button>
+</form>
+
+💧 editar.php
+<form method="POST" action="/lp3_projeto/clientes/editar?id=<?= $dado['id'] ?>">
+    <label>Nome</label>
+    <input type="text" name="nome" value="<?= htmlspecialchars($dado['nome']) ?>" required>
+
+    <label>E-mail</label>
+    <input type="email" name="email" value="<?= htmlspecialchars($dado['email']) ?>" required>
+
+    <label>Telefone</label>
+    <input type="text" name="telefone" value="<?= htmlspecialchars($dado['telefone']) ?>">
+
+    <button type="submit">Atualizar</button>
+</form>
+
+💚 Módulo ao menu de navegação
+<li><a href="/lp3_projeto/clientes">Clientes</a></li>
+
+
+
  -->
